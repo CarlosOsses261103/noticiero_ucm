@@ -1,0 +1,41 @@
+# Entorno local
+.env
+.venv/
+venv/
+env/
+.venv-codex/
+
+# Python / Django
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.sqlite3
+db.sqlite3
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Archivos del sistema/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Copia local duplicada del video de presentador
+/video.mp4
+
+# Asset local no referenciado por la app
+/aura.jpg
+
+# Noticias y medios generados localmente
+media/noticias/noticias_cache.json
+media/noticias/scraper_metadata.json
+media/noticias/textos/*
+!media/noticias/textos/.gitkeep
+media/noticias/imagenes/*
+!media/noticias/imagenes/.gitkeep
+media/noticias/audio/*
+!media/noticias/audio/.gitkeep

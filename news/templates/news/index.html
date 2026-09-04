@@ -1,0 +1,66 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }} | Noticiero con IA</title>
+    <link rel="stylesheet" href="{% static 'news/css/styles.css' %}">
+</head>
+<body>
+    <main class="broadcast-shell">
+        <section class="studio-grid">
+            <article class="video-stage" aria-label="Presentador de IA">
+                {% if video_url %}
+                    <video id="presenterVideo" class="presenter-video" playsinline muted loop preload="metadata" poster="{% if image_urls %}{{ image_urls.0 }}{% endif %}">
+                        <source src="{{ video_url }}" type="video/mp4">
+                    </video>
+                {% else %}
+                    <div class="video-placeholder">IA</div>
+                {% endif %}
+
+                <div class="live-badge">
+                    <span></span>
+                    En vivo
+                </div>
+
+                <div class="lower-third">
+                    <p data-current-label>Noticiero con IA · Noticia 1 / {{ broadcast_count }}</p>
+                    <h1 data-news-title>{{ title }}</h1>
+                </div>
+            </article>
+
+            <aside class="news-panel">
+                <div class="headline-block">
+                    <span data-playlist-position>Noticia 1 de {{ broadcast_count }}</span>
+                    <h2 data-news-heading>{{ title }}</h2>
+                </div>
+
+                <figure class="carousel-frame">
+                    <img data-carousel-image src="{% if image_urls %}{{ image_urls.0 }}{% endif %}" alt="Imagen de la noticia" class="{% if not image_urls %}is-hidden{% endif %}">
+                    <div data-empty-carousel class="empty-carousel {% if image_urls %}is-hidden{% endif %}">Sin imagenes</div>
+                    <figcaption data-carousel-count>{% if image_urls %}1 / {{ image_urls|length }}{% else %}0 / 0{% endif %}</figcaption>
+                </figure>
+
+                <div class="summary-strip">
+                    <span>Resumen IA</span>
+                    <p data-news-body>{{ body }}</p>
+                </div>
+
+                <div class="control-strip">
+                    <div class="button-group">
+                        <button id="startButton" class="start-button" type="button">Iniciar noticiero</button>
+                        <button id="nextButton" class="next-button" type="button" disabled>Siguiente noticia</button>
+                    </div>
+                    <span id="audioState" class="audio-state">Presiona iniciar</span>
+                </div>
+
+                <audio id="newsAudio" preload="auto" src="{{ audio_url }}"></audio>
+            </aside>
+        </section>
+    </main>
+
+    {{ broadcast_items|json_script:"broadcast-data" }}
+    <script src="{% static 'news/js/main.js' %}"></script>
+</body>
+</html>
