@@ -97,6 +97,8 @@ http://127.0.0.1:8000/
 
 El audio se genera automaticamente en `media/noticias/audio/`. El backend intenta `gTTS`, luego `edge-tts` y despues `pyttsx3`; si no logra crear un archivo, el navegador usa su voz integrada al presionar el boton.
 
+Si `media/noticias/noticias_cache.json` no existe o queda antiguo, Django intenta actualizarlo automaticamente desde la fuente definida en `NEWS_SOURCE_URL`. Por defecto toma 6 noticias, refresca cada 360 minutos y genera un resumen local sin Gemini para evitar que Cloud quede sin contenido si no hay API key configurada.
+
 ## Subir a GitHub
 
 El repositorio esta preparado para no subir archivos locales sensibles o generados, como `.env`, `db.sqlite3`, audios, caches del scraper, imagenes descargadas y entornos virtuales. El video usado por la app queda en `media/video/video.mp4`.
@@ -170,6 +172,11 @@ Primero crea un archivo `.env` en la raiz del proyecto:
 ```text
 GEMINI_API_KEY=tu_api_key_de_gemini
 GEMINI_MODEL=gemini-1.5-flash
+NEWS_SOURCE_URL=https://www.ucm.cl/facultades/facultad-de-ciencias-basicas/
+NEWS_AUTO_REFRESH=1
+NEWS_AUTO_REFRESH_LIMIT=6
+NEWS_AUTO_REFRESH_MAX_AGE_MINUTES=360
+NEWS_AUTO_REFRESH_USE_GEMINI=0
 ```
 
 Ejecutar para tomar todas las noticias disponibles:

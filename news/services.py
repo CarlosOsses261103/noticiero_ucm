@@ -2,7 +2,9 @@ import hashlib
 import json
 import logging
 import re
+import threading
 import unicodedata
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from django.conf import settings
@@ -10,6 +12,7 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+_refresh_lock = threading.Lock()
 
 
 def get_broadcast_context():
@@ -42,6 +45,10 @@ def ensure_media_directories():
 
 
 def get_articles():
+    refreshed_articles = refresh_cached_articles_if_needed()
+    if refreshed_articles:
+        return refreshed_articles
+
     cached_articles = get_cached_broadcast_articles()
     if cached_articles:
         return cached_articles
@@ -102,32 +109,146 @@ def get_cached_broadcast_articles():
     articles = []
 
     for index, item in enumerate(raw_items):
-        title = str(item.get("title") or "").strip()
-        body = str(item.get("body") or "").strip()
-
-        if not title or not body:
-            continue
-
-        article_id = normalize_article_id(item.get("id") or title)
-        audio_path = get_cached_audio_path(title, body)
-
-        articles.append(
-            {
-                "id": article_id,
-                "order": index + 1,
-                "article_name": str(item.get("source_url") or f"{article_id}.json"),
-                "title": title,
-                "body": body,
-                "image_urls": normalize_url_list(item.get("image_urls")),
-                "source_url": str(item.get("source_url") or ""),
-                "published_at": str(item.get("published_at") or ""),
-                "audio_url": media_url(audio_path) if audio_path else "",
-                "audio_api_url": f"/api/audio/{article_id}/",
-                "audio_generated": audio_path is not None,
-            }
-        )
+        article = build_cached_broadcast_article(item, index)
+        if article:
+            articles.append(article)
 
     return articles
+
+
+def build_cached_broadcast_article(item: dict, index: int):
+    title = str(item.get("title") or "").strip()
+    body = str(item.get("body") or "").strip()
+
+    if not title or not body:
+        return None
+
+    article_id = normalize_article_id(item.get("id") or title)
+    audio_path = get_cached_audio_path(title, body)
+
+    return {
+        "id": article_id,
+        "order": index + 1,
+        "article_name": str(item.get("source_url") or f"{article_id}.json"),
+        "title": title,
+        "body": body,
+        "image_urls": normalize_url_list(item.get("image_urls")),
+        "source_url": str(item.get("source_url") or ""),
+        "published_at": str(item.get("published_at") or ""),
+        "audio_url": media_url(audio_path) if audio_path else "",
+        "audio_api_url": f"/api/audio/{article_id}/",
+        "audio_generated": audio_path is not None,
+    }
+
+
+def refresh_cached_articles_if_needed():
+    if not settings.NEWS_AUTO_REFRESH or not should_refresh_news_cache():
+        return []
+
+    with _refresh_lock:
+        if not should_refresh_news_cache():
+            return []
+
+        try:
+            return refresh_news_cache()
+        except Exception as exc:
+            logger.warning("No se pudo actualizar la cache de noticias: %s", exc)
+            return []
+
+
+def should_refresh_news_cache():
+    if not settings.NEWS_CACHE_PATH.exists() or settings.NEWS_CACHE_PATH.stat().st_size == 0:
+        return True
+
+    max_age_minutes = settings.NEWS_AUTO_REFRESH_MAX_AGE_MINUTES
+    if max_age_minutes <= 0:
+        return False
+
+    generated_at = get_cache_generated_at()
+    if generated_at is None:
+        return True
+
+    return datetime.now(timezone.utc) - generated_at > timedelta(minutes=max_age_minutes)
+
+
+def get_cache_generated_at():
+    try:
+        cache = json.loads(settings.NEWS_CACHE_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    raw_date = cache.get("generated_at") if isinstance(cache, dict) else ""
+    if not raw_date:
+        return None
+
+    try:
+        parsed = datetime.fromisoformat(str(raw_date).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def refresh_news_cache():
+    from scraper_noticias import (
+        NEWS_SECTION_TITLE,
+        build_cache_item,
+        generate_summary_script,
+        scrape_news,
+    )
+
+    limit = settings.NEWS_AUTO_REFRESH_LIMIT if settings.NEWS_AUTO_REFRESH_LIMIT > 0 else None
+    news_items = scrape_news(
+        settings.NEWS_SOURCE_URL,
+        limit=limit,
+        max_images=max(settings.NEWS_AUTO_REFRESH_MAX_IMAGES, 0),
+    )
+
+    cache_items = []
+    for index, news in enumerate(news_items, start=1):
+        script_text = generate_auto_refresh_script(news)
+        cache_items.append(build_cache_item(news, script_text, order=index))
+
+    if not cache_items:
+        return []
+
+    payload = {
+        "source_url": settings.NEWS_SOURCE_URL,
+        "section": NEWS_SECTION_TITLE,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "count": len(cache_items),
+        "items": cache_items,
+    }
+
+    write_news_cache(payload)
+    return [
+        article
+        for index, item in enumerate(cache_items)
+        if (article := build_cached_broadcast_article(item, index))
+    ]
+
+
+def generate_auto_refresh_script(news):
+    from scraper_noticias import generate_summary_script
+
+    if not settings.NEWS_AUTO_REFRESH_USE_GEMINI:
+        return generate_summary_script(news, use_gemini=False)
+
+    try:
+        return generate_summary_script(news, use_gemini=True)
+    except Exception as exc:
+        logger.warning("Gemini fallo al generar guion; se usara resumen local: %s", exc)
+        return generate_summary_script(news, use_gemini=False)
+
+
+def write_news_cache(payload: dict):
+    try:
+        settings.NEWS_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        settings.NEWS_CACHE_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError as exc:
+        logger.warning("No se pudo escribir la cache de noticias: %s", exc)
 
 
 def get_cached_article_by_id(article_id: str):

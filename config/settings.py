@@ -15,6 +15,23 @@ def env_list(name, default):
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def env_bool(name, default):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "y", "on", "si", "sí"}
+
+
+def env_int(name, default):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
 ALLOWED_HOSTS = env_list(
     "DJANGO_ALLOWED_HOSTS",
     ["*"] if DEBUG else ["127.0.0.1", "localhost"],
@@ -93,6 +110,16 @@ NEWS_IMAGES_DIR = MEDIA_ROOT / "noticias" / "imagenes"
 NEWS_AUDIO_DIR = MEDIA_ROOT / "noticias" / "audio"
 NEWS_CACHE_PATH = MEDIA_ROOT / "noticias" / "noticias_cache.json"
 NEWS_VIDEO_PATH = MEDIA_ROOT / "video" / "video.mp4"
+
+NEWS_SOURCE_URL = os.environ.get(
+    "NEWS_SOURCE_URL",
+    "https://www.ucm.cl/facultades/facultad-de-ciencias-basicas/",
+)
+NEWS_AUTO_REFRESH = env_bool("NEWS_AUTO_REFRESH", True)
+NEWS_AUTO_REFRESH_LIMIT = env_int("NEWS_AUTO_REFRESH_LIMIT", 6)
+NEWS_AUTO_REFRESH_MAX_IMAGES = env_int("NEWS_AUTO_REFRESH_MAX_IMAGES", 3)
+NEWS_AUTO_REFRESH_MAX_AGE_MINUTES = env_int("NEWS_AUTO_REFRESH_MAX_AGE_MINUTES", 360)
+NEWS_AUTO_REFRESH_USE_GEMINI = env_bool("NEWS_AUTO_REFRESH_USE_GEMINI", False)
 
 NEWS_TTS_LANG = os.environ.get(
     "NEWS_TTS_LANG",
