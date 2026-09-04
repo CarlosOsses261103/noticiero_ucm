@@ -15,7 +15,10 @@ def env_list(name, default):
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", ["*"] if DEBUG else ["127.0.0.1", "localhost"])
+ALLOWED_HOSTS = env_list(
+    "DJANGO_ALLOWED_HOSTS",
+    ["*"] if DEBUG else ["127.0.0.1", "localhost"],
+)
 
 INSTALLED_APPS = [
     "django.contrib.staticfiles",
@@ -24,6 +27,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.common.CommonMiddleware",
 ]
 
@@ -53,10 +57,35 @@ DATABASES = {
 
 LANGUAGE_CODE = "es-cl"
 TIME_ZONE = "America/Santiago"
+
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
+
+# =========================
+# ARCHIVOS ESTÁTICOS
+# =========================
+
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Permite que WhiteNoise encuentre los archivos dentro de
+# news/static/ durante el despliegue en Cloud Run.
+WHITENOISE_USE_FINDERS = True
+
+# Almacenamiento optimizado para producción.
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": (
+            "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        ),
+    },
+}
+
+
+# =========================
+# ARCHIVOS MULTIMEDIA
+# =========================
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -66,7 +95,16 @@ NEWS_IMAGES_DIR = MEDIA_ROOT / "noticias" / "imagenes"
 NEWS_AUDIO_DIR = MEDIA_ROOT / "noticias" / "audio"
 NEWS_CACHE_PATH = MEDIA_ROOT / "noticias" / "noticias_cache.json"
 NEWS_VIDEO_PATH = MEDIA_ROOT / "video" / "video.mp4"
-NEWS_TTS_LANG = os.environ.get("NEWS_TTS_LANG", "es")
-NEWS_EDGE_TTS_VOICE = os.environ.get("NEWS_EDGE_TTS_VOICE", "es-CL-CatalinaNeural")
+
+NEWS_TTS_LANG = os.environ.get(
+    "NEWS_TTS_LANG",
+    "es",
+)
+
+NEWS_EDGE_TTS_VOICE = os.environ.get(
+    "NEWS_EDGE_TTS_VOICE",
+    "es-CL-CatalinaNeural",
+)
+
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
