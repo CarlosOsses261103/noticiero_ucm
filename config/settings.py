@@ -76,9 +76,7 @@ WHITENOISE_USE_FINDERS = True
 # Almacenamiento optimizado para producción.
 STORAGES = {
     "staticfiles": {
-        "BACKEND": (
-            "whitenoise.storage.CompressedManifestStaticFilesStorage"
-        ),
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
