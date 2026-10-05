@@ -16,6 +16,7 @@
     const audioState = document.getElementById("audioState");
     const audio = document.getElementById("newsAudio");
     const video = document.getElementById("presenterVideo");
+    const videoStage = document.querySelector(".video-stage");
 
     let activeArticleIndex = 0;
     let activeImageIndex = 0;
@@ -144,6 +145,53 @@
             : "Siguiente noticia";
     }
 
+    function markVideoReady() {
+        if (videoStage) {
+            videoStage.classList.remove("is-video-failed");
+        }
+    }
+
+    function markVideoFailed() {
+        if (videoStage) {
+            videoStage.classList.add("is-video-failed");
+        }
+    }
+
+    function playPresenterVideo(restart = false) {
+        if (!video) {
+            return;
+        }
+
+        video.muted = true;
+        video.setAttribute("muted", "");
+        video.setAttribute("playsinline", "");
+        video.setAttribute("webkit-playsinline", "");
+
+        if (restart) {
+            video.currentTime = 0;
+        }
+
+        const initialTime = video.currentTime;
+        const playPromise = video.play();
+
+        if (!playPromise || typeof playPromise.then !== "function") {
+            return;
+        }
+
+        playPromise
+            .then(() => {
+                markVideoReady();
+                window.setTimeout(() => {
+                    if (!video.paused && video.currentTime <= initialTime + 0.05) {
+                        markVideoFailed();
+                    }
+                }, 3000);
+            })
+            .catch(() => {
+                markVideoFailed();
+            });
+    }
+
     async function startBroadcast() {
         if (playlist.length === 0) {
             audioState.textContent = "Sin noticias";
@@ -156,9 +204,7 @@
         startButton.textContent = "Noticiero en curso";
 
         if (video) {
-            video.muted = true;
-            video.currentTime = 0;
-            video.play().catch(() => {});
+            playPresenterVideo(true);
         }
 
         await playArticle(activeArticleIndex);
@@ -316,7 +362,7 @@
         updateNextButton();
 
         if (video) {
-            video.play().catch(() => {});
+            playPresenterVideo();
         }
 
         if (shouldAutoplay) {
@@ -329,5 +375,12 @@
     startButton.addEventListener("click", startBroadcast);
     nextButton.addEventListener("click", goToNextArticle);
     document.addEventListener("fullscreenchange", syncFullscreenClass);
+    if (video) {
+        video.addEventListener("loadeddata", markVideoReady);
+        video.addEventListener("canplay", markVideoReady);
+        video.addEventListener("playing", markVideoReady);
+        video.addEventListener("error", markVideoFailed);
+        video.addEventListener("abort", markVideoFailed);
+    }
     window.addEventListener("load", preparePage);
 })();

@@ -99,6 +99,8 @@ El audio se genera automaticamente en `media/noticias/audio/`. El backend intent
 
 Si `media/noticias/noticias_cache.json` no existe o queda antiguo, Django intenta actualizarlo automaticamente desde la fuente definida en `NEWS_SOURCE_URL`. Por defecto toma 6 noticias, refresca cada 360 minutos y genera un resumen local sin Gemini para evitar que Cloud quede sin contenido si no hay API key configurada.
 
+Para navegadores integrados de TV, la pagina usa primero `news/static/news/video/presenter-tv.mp4`: una version 720p, H.264 baseline, sin audio y con `faststart`. El archivo original en `media/video/video.mp4` queda como respaldo para navegadores modernos.
+
 ## Subir a GitHub
 
 El repositorio esta preparado para no subir archivos locales sensibles o generados, como `.env`, `db.sqlite3`, audios, caches del scraper, imagenes descargadas y entornos virtuales. El video usado por la app queda en `media/video/video.mp4`.
